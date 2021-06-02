@@ -102,7 +102,7 @@ with open("src/gdstk.h") as fin:
     for line in fin:
         m = version_re.match(line)
         if m:
-            version = m[1]
+            version = m[1] + "+dd1"
             break
 if version is None:
     raise RuntimeError("Unable to determine version.")
