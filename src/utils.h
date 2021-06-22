@@ -12,6 +12,7 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 #define _USE_MATH_DEFINES
 
 #define GDSTK_PRINT_BUFFER_COUNT 1024
+#define GDSTK_DOUBLE_BUFFER_COUNT 1024
 
 #define GDSTK_MIN_POINTS 4
 
@@ -44,8 +45,16 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 // From http://esr.ibiblio.org/?p=5095
 #define IS_BIG_ENDIAN (*(uint16_t*)"\0\xFF" < 0x100)
 
+#ifdef _WIN32
+#define FSEEK64 _fseeki64
+#else
+// Assuming sizeof(long) == 8
+#define FSEEK64 fseek
+#endif
+
 #include <math.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "array.h"
 #include "vec.h"
@@ -67,6 +76,7 @@ enum struct ErrorCode {
     OutputFileOpenError,
     InputFileOpenError,
     InputFileError,
+    FileError,
     InvalidFile,
     InsufficientMemory,
     ZlibError,
@@ -164,6 +174,13 @@ void hobby_interpolation(uint64_t count, Vec2* points, double* angles, bool* ang
 
 // Stores the convex hull of points into result
 void convex_hull(const Array<Vec2> points, Array<Vec2>& result);
+
+// Return a global buffer with the representation of the value in fixed format
+// with a maximal precision set.  This function is meant for internal use only.
+char* double_print(double value, uint32_t precision, char* buffer, size_t buffer_size);
+
+// Thread-safe version of localtime.
+tm* get_now(tm* result);
 
 }  // namespace gdstk
 

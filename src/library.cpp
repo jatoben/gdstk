@@ -13,7 +13,6 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <zlib.h>
 
 #include "allocator.h"
@@ -115,12 +114,12 @@ ErrorCode Library::write_gds(const char* filename, uint64_t max_points, tm* time
         return ErrorCode::OutputFileOpenError;
     }
 
+    tm now = {0};
+    if (!timestamp) timestamp = get_now(&now);
+
     uint64_t len = strlen(name);
     if (len % 2) len++;
-    if (!timestamp) {
-        time_t now = time(NULL);
-        timestamp = localtime(&now);
-    }
+
     uint16_t buffer_start[] = {6,
                                0x0002,
                                0x0258,
@@ -1065,6 +1064,7 @@ Library read_gds(const char* filename, double unit, double tolerance, ErrorCode*
     return Library{0};
 }
 
+// TODO: https://github.com/heitzmann/gdstk/issues/29
 Library read_oas(const char* filename, double unit, double tolerance, ErrorCode* error_code) {
     Library library = {0};
 
@@ -1163,7 +1163,7 @@ Library read_oas(const char* filename, double unit, double tolerance, ErrorCode*
                 if (error_code) *error_code = ErrorCode::InvalidFile;
                 break;
             case OasisRecord::END: {
-                fseek(in.file, 0, SEEK_END);
+                FSEEK64(in.file, 0, SEEK_END);
                 library.name = (char*)allocate(4);
                 library.name[0] = 'L';
                 library.name[1] = 'I';
@@ -2117,7 +2117,8 @@ Library read_oas(const char* filename, double unit, double tolerance, ErrorCode*
                     if (error_code) *error_code = ErrorCode::InvalidFile;
                     oasis_read_unsigned_integer(in);
                     len = oasis_read_unsigned_integer(in);
-                    fseek(in.file, (long)len, SEEK_SET);
+                    assert(len <= INT64_MAX);
+                    FSEEK64(in.file, (int64_t)len, SEEK_SET);
                 } else {
                     z_stream s = {0};
                     s.zalloc = zalloc;
@@ -2210,7 +2211,7 @@ ErrorCode gds_units(const char* filename, double& unit, double& precision) {
             fclose(in);
             return error_code;
         }
-        if (buffer[2] == 0x03) {  // UNITS
+        if ((GdsiiRecord)buffer[2] == GdsiiRecord::UNITS) {
             big_endian_swap64(data64, 2);
             precision = gdsii_real_to_double(data64[1]);
             unit = precision / gdsii_real_to_double(data64[0]);
@@ -2221,6 +2222,89 @@ ErrorCode gds_units(const char* filename, double& unit, double& precision) {
     fclose(in);
     fputs("[GDSTK] GDSII file missing units definition.\n", stderr);
     return ErrorCode::InvalidFile;
+}
+
+tm gds_timestamp(const char* filename, const tm* new_timestamp, ErrorCode* error_code) {
+    tm result = {0};
+    uint8_t buffer[65537];
+    uint16_t* data16 = (uint16_t*)(buffer + 4);
+    uint16_t new_tm_buffer[12];
+    FILE* inout = NULL;
+
+    if (new_timestamp) {
+        new_tm_buffer[0] = new_timestamp->tm_year + 1900;
+        new_tm_buffer[1] = new_timestamp->tm_mon + 1;
+        new_tm_buffer[2] = new_timestamp->tm_mday;
+        new_tm_buffer[3] = new_timestamp->tm_hour;
+        new_tm_buffer[4] = new_timestamp->tm_min;
+        new_tm_buffer[5] = new_timestamp->tm_sec;
+        big_endian_swap16(new_tm_buffer, 6);
+        memcpy(new_tm_buffer + 6, new_tm_buffer, 6 * sizeof(uint16_t));
+        inout = fopen(filename, "r+b");
+    } else {
+        inout = fopen(filename, "rb");
+    }
+    if (inout == NULL) {
+        fputs("[GDSTK] Unable to open GDSII file.\n", stderr);
+        if (error_code) *error_code = ErrorCode::InputFileOpenError;
+        return result;
+    }
+
+    while (true) {
+        uint64_t record_length = COUNT(buffer);
+        ErrorCode err = gdsii_read_record(inout, buffer, record_length);
+        if (err != ErrorCode::NoError) {
+            if (error_code) *error_code = err;
+            fclose(inout);
+            return result;
+        }
+
+        GdsiiRecord record = (GdsiiRecord)buffer[2];
+        if (record == GdsiiRecord::BGNLIB) {
+            if (record_length != 28) {
+                fclose(inout);
+                fputs("[GDSTK] Invalid or corrupted GDSII file.\n", stderr);
+                if (error_code) *error_code = ErrorCode::InvalidFile;
+                return result;
+            }
+            big_endian_swap16(data16, 6);
+            result.tm_year = data16[0] - 1900;
+            result.tm_mon = data16[1] - 1;
+            result.tm_mday = data16[2];
+            result.tm_hour = data16[3];
+            result.tm_min = data16[4];
+            result.tm_sec = data16[5];
+            if (!new_timestamp) {
+                fclose(inout);
+                return result;
+            }
+            if (FSEEK64(inout, -24, SEEK_CUR) != 0) {
+                fclose(inout);
+                fputs("[GDSTK] Unable to rewrite library timestamp.\n", stderr);
+                if (error_code) *error_code = ErrorCode::FileError;
+                return result;
+            }
+            fwrite(new_tm_buffer, sizeof(uint16_t), 12, inout);
+        } else if (record == GdsiiRecord::BGNSTR && new_timestamp) {
+            if (record_length != 28) {
+                fclose(inout);
+                fputs("[GDSTK] Invalid or corrupted GDSII file.\n", stderr);
+                if (error_code) *error_code = ErrorCode::InvalidFile;
+                return result;
+            }
+            if (FSEEK64(inout, -24, SEEK_CUR) != 0) {
+                fclose(inout);
+                fputs("[GDSTK] Unable to rewrite cell timestamp.\n", stderr);
+                if (error_code) *error_code = ErrorCode::FileError;
+                return result;
+            }
+            fwrite(new_tm_buffer, sizeof(uint16_t), 12, inout);
+        } else if (record == GdsiiRecord::ENDLIB) {
+            break;
+        }
+    }
+    fclose(inout);
+    return result;
 }
 
 ErrorCode oas_precision(const char* filename, double& precision) {
@@ -2272,7 +2356,7 @@ bool oas_validate(const char* filename, uint32_t* signature, ErrorCode* error_co
         return false;
     }
 
-    if (fseek(in, -5, SEEK_END) != 0) {
+    if (FSEEK64(in, -5, SEEK_END) != 0) {
         fputs("[GDSTK] Unable to find the END record of the file.\n", stderr);
         if (error_code) *error_code = ErrorCode::InvalidFile;
         fclose(in);
@@ -2291,7 +2375,7 @@ bool oas_validate(const char* filename, uint32_t* signature, ErrorCode* error_co
     if (file_sum[0] == 1) {
         // CRC32
         uint32_t sig = crc32_z(0, NULL, 0);
-        fseek(in, 0, SEEK_SET);
+        FSEEK64(in, 0, SEEK_SET);
         while (size >= COUNT(buffer)) {
             if (fread(buffer, 1, COUNT(buffer), in) < COUNT(buffer)) {
                 fprintf(stderr, "[GDSTK] Error reading file %s", filename);
@@ -2312,7 +2396,7 @@ bool oas_validate(const char* filename, uint32_t* signature, ErrorCode* error_co
     } else if (file_sum[0] == 2) {
         // Checksum32
         uint32_t sig = 0;
-        fseek(in, 0, SEEK_SET);
+        FSEEK64(in, 0, SEEK_SET);
         while (size >= COUNT(buffer)) {
             if (fread(buffer, 1, COUNT(buffer), in) < COUNT(buffer)) {
                 fprintf(stderr, "[GDSTK] Error reading file %s", filename);

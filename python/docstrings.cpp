@@ -630,10 +630,7 @@ After the repetition is applyed, the original attribute is set to
 Returns:
     Newly created objects.)!");
 
-PyDoc_STRVAR(reference_object_cell_doc, R"!(Cell referenced by this object.
-
-Notes:
-    This attribute is read-only.)!");
+PyDoc_STRVAR(reference_object_cell_doc, R"!(Cell referenced by this object.)!");
 
 PyDoc_STRVAR(reference_object_origin_doc, R"!(Reference origin.)!");
 
@@ -2235,7 +2232,7 @@ Returns:
 
 PyDoc_STRVAR(
     cell_object_write_svg_doc,
-    R"!(write_svg(outfile, scaling=10, style=None, fontstyle=None, background=\"#222222\", pad=\"5%\", sort_function=None) -> self
+    R"!(write_svg(outfile, scaling=10, precision=6, style=None, fontstyle=None, background="#222222", pad="5%", sort_function=None) -> self
 
 Export this cell to an SVG image file. Colors and attributes must follow
 SVG specification.
@@ -2243,6 +2240,8 @@ SVG specification.
 Args:
     outfile (str or pathlib.Path): Name of the output file.
     scaling: Scaling factor for the whole geometry.
+    precision (positive integer): Maximum number of digits for
+      coordinates after scaling.
     style (dict): SVG attributes for each layer and data type. See the
       example below.
     fontstyle (dict): SVG attributes for each layer and text type.
@@ -2412,11 +2411,32 @@ Examples:
     >>> cell = gdstk.Cell("MAIN")
     >>> cell.add(polygon)
     >>> lib = gdstk.Library()
-    >>> lib.add(cell))!");
+    >>> lib.add(cell)
+
+Notes:
+    This method does not check whether cell names are duplicated in the
+    library.  If duplicates are found in the library, the resulting file
+    will be invalid.
+
+See also:
+    :meth:`gdstk.Library.replace`)!");
 
 PyDoc_STRVAR(library_object_remove_doc, R"!(remove(*cells) -> self
 
 Remove cells from this library.)!");
+
+PyDoc_STRVAR(library_object_replace_doc, R"!(replace(*cells) -> self
+
+Add cells to this library, replacing any cells with the same name.
+
+References to any removed cells are also replaced with the new cell.
+
+Examples:
+    >>> polygon = gdstk.rectangle((-10, -10), (10, 10))
+    >>> cell = gdstk.Cell("Alignment Mark")
+    >>> cell.add(polygon)
+    >>> lib = gdstk.read_gds("layout.gds")
+    >>> lib.replace(cell))!");
 
 PyDoc_STRVAR(library_object_new_cell_doc, R"!(new_cell(name) -> gdstk.Cell
 
@@ -2438,7 +2458,7 @@ Return the top-level cells in the library.
 Top-level cells are cells that do not appear as dependency of any other
 cells in the library.)!");
 
-PyDoc_STRVAR(library_object_write_gds_doc, R"!(write_gds(outfile, max_points=199) -> None
+PyDoc_STRVAR(library_object_write_gds_doc, R"!(write_gds(outfile, max_points=199, timestamp=None) -> None
 
 Save this library to a GDSII file.
 
@@ -2446,6 +2466,8 @@ Args:
     outfile (str or pathlib.Path): Name of the output file.
     max_points: Maximal number of vertices per polygon. Polygons with
       more vertices that this are automatically fractured.
+    timestamp (datetime object): Timestamp to be stored in the GDSII
+      file. If ``None``, the current time is used.
 
 See also:
     :ref:`getting-started`)!");
@@ -2491,7 +2513,7 @@ Notes:
 // GdsWriter
 
 PyDoc_STRVAR(gdswriter_object_type_doc,
-             R"!(GdsWriter(outfile, name="library", unit=1e-6, precision=1e-9, max_points=199)
+             R"!(GdsWriter(outfile, name="library", unit=1e-6, precision=1e-9, max_points=199, timestamp=None)
 
 Multi-step GDSII stream file writer.
 
@@ -2508,6 +2530,8 @@ Args:
       GDSII file.
     max_points: Maximal number of vertices per polygon. Polygons with
       more vertices that this are automatically fractured.
+    timestamp (datetime object): Timestamp to be stored in the GDSII
+      file. If ``None``, the current time is used.
 
 Eaxmples:
     >>> writer = gdstk.GdsWriter()
@@ -3042,6 +3066,24 @@ Examples:
     >>> deps = raw_cells["CELL_2"].dependencies(True)
     >>> print(deps[0] is raw_cells["CELL_1"])
     True)!");
+
+PyDoc_STRVAR(gds_timestamp_function_doc, R"!(gds_timestamp(filename, timestamp=None) -> datetime
+
+Get and set the timestamp of a GDSII file.
+
+Args:
+    filename (str or pathlib.Path): Name of the GDSII file.
+    timestamp (datetime object): If not ``None``, the timestamp of the
+      file is set to this value.
+
+Returns:
+    Timestamp of the file before modification (if any).
+
+Notes:
+    This function modifies the contents of the file. The creation,
+    modification and access timestamps of the file itself are modified
+    according to the file system rules in place for reading and
+    writing.)!");
 
 PyDoc_STRVAR(gds_units_function_doc, R"!(gds_units(infile) -> tuple
 

@@ -149,6 +149,122 @@ static PyObject* library_object_remove(LibraryObject* self, PyObject* args) {
     return (PyObject*)self;
 }
 
+static void library_replace_cell(Library* library, Cell* cell) {
+    Array<Cell*>* cell_array = &library->cell_array;
+    for (uint64_t i = 0; i < cell_array->count; i++) {
+        Cell* c = cell_array->items[i];
+        if (strcmp(cell->name, c->name) == 0) {
+            cell_array->remove_unordered(i--);
+            Py_DECREF(c->owner);
+        } else {
+            Reference** ref_pp = c->reference_array.items;
+            for (uint64_t j = c->reference_array.count; j > 0; j--, ref_pp++) {
+                Reference* reference = *ref_pp;
+                if (reference->type == ReferenceType::Cell) {
+                    if (cell != reference->cell && strcmp(cell->name, reference->cell->name) == 0) {
+                        Py_DECREF(reference->cell->owner);
+                        Py_INCREF(cell->owner);
+                        reference->cell = cell;
+                    }
+                } else if (reference->type == ReferenceType::RawCell) {
+                    if (strcmp(cell->name, reference->rawcell->name) == 0) {
+                        Py_DECREF(reference->rawcell->owner);
+                        Py_INCREF(cell->owner);
+                        reference->type = ReferenceType::Cell;
+                        reference->cell = cell;
+                    }
+                }
+            }
+        }
+    }
+    Array<RawCell*>* rawcell_array = &library->rawcell_array;
+    for (uint64_t i = 0; i < rawcell_array->count; i++) {
+        RawCell* c = rawcell_array->items[i];
+        if (strcmp(cell->name, c->name) == 0) {
+            rawcell_array->remove_unordered(i--);
+            Py_DECREF(c->owner);
+        }
+    }
+    library->cell_array.append(cell);
+}
+
+static void library_replace_rawcell(Library* library, RawCell* rawcell) {
+    Array<Cell*>* cell_array = &library->cell_array;
+    for (uint64_t i = 0; i < cell_array->count; i++) {
+        Cell* c = cell_array->items[i];
+        if (strcmp(rawcell->name, c->name) == 0) {
+            cell_array->remove_unordered(i--);
+            Py_DECREF(c->owner);
+        } else {
+            Reference** ref_pp = c->reference_array.items;
+            for (uint64_t j = c->reference_array.count; j > 0; j--, ref_pp++) {
+                Reference* reference = *ref_pp;
+                if (reference->type == ReferenceType::Cell) {
+                    if (strcmp(rawcell->name, reference->cell->name) == 0) {
+                        Py_DECREF(reference->cell->owner);
+                        Py_INCREF(rawcell->owner);
+                        reference->rawcell = rawcell;
+                        reference->type = ReferenceType::RawCell;
+                    }
+                } else if (reference->type == ReferenceType::RawCell) {
+                    if (rawcell != reference->rawcell &&
+                        strcmp(rawcell->name, reference->rawcell->name) == 0) {
+                        Py_DECREF(reference->rawcell->owner);
+                        Py_INCREF(rawcell->owner);
+                        reference->rawcell = rawcell;
+                    }
+                }
+            }
+        }
+    }
+    Array<RawCell*>* rawcell_array = &library->rawcell_array;
+    for (uint64_t i = 0; i < rawcell_array->count; i++) {
+        RawCell* c = rawcell_array->items[i];
+        if (strcmp(rawcell->name, c->name) == 0) {
+            rawcell_array->remove_unordered(i--);
+            Py_DECREF(c->owner);
+        }
+    }
+    library->rawcell_array.append(rawcell);
+}
+
+static PyObject* library_object_replace(LibraryObject* self, PyObject* args) {
+    uint64_t len = PyTuple_GET_SIZE(args);
+    Library* library = self->library;
+
+    for (uint64_t i = 0; i < len; i++) {
+        PyObject* arg = PyTuple_GET_ITEM(args, i);
+        Py_INCREF(arg);
+        if (CellObject_Check(arg)) {
+            library_replace_cell(library, ((CellObject*)arg)->cell);
+        } else if (RawCellObject_Check(arg)) {
+            library_replace_rawcell(library, ((RawCellObject*)arg)->rawcell);
+        } else if (PyIter_Check(arg)) {
+            PyObject* item = PyIter_Next(arg);
+            while (item) {
+                if (CellObject_Check(item)) {
+                    library_replace_cell(library, ((CellObject*)item)->cell);
+                } else if (RawCellObject_Check(item)) {
+                    library_replace_rawcell(library, ((RawCellObject*)item)->rawcell);
+                } else {
+                    PyErr_SetString(PyExc_TypeError, "Arguments must be of type Cell or RawCell.");
+                    Py_DECREF(item);
+                    Py_DECREF(arg);
+                    return NULL;
+                }
+                item = PyIter_Next(arg);
+            }
+            Py_DECREF(arg);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Arguments must be of type Cell or RawCell.");
+            Py_DECREF(arg);
+            return NULL;
+        }
+    }
+    Py_INCREF(self);
+    return (PyObject*)self;
+}
+
 static PyObject* library_object_top_level(LibraryObject* self, PyObject*) {
     Library* library = self->library;
     Array<Cell*> top_cells = {0};
@@ -186,15 +302,33 @@ static PyObject* library_object_top_level(LibraryObject* self, PyObject*) {
 }
 
 static PyObject* library_object_write_gds(LibraryObject* self, PyObject* args, PyObject* kwds) {
-    const char* keywords[] = {"outfile", "max_points", NULL};
+    const char* keywords[] = {"outfile", "max_points", "timestamp", NULL};
     PyObject* pybytes = NULL;
+    PyObject* pytimestamp = Py_None;
+    tm* timestamp = NULL;
+    tm _timestamp = {0};
     uint64_t max_points = 199;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O&|K:write_gds", (char**)keywords,
-                                     PyUnicode_FSConverter, &pybytes, &max_points))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O&|KO:write_gds", (char**)keywords,
+                                     PyUnicode_FSConverter, &pybytes, &max_points, &pytimestamp))
         return NULL;
 
+    if (pytimestamp != Py_None) {
+        if (!PyDateTime_Check(pytimestamp)) {
+            PyErr_SetString(PyExc_TypeError, "Timestamp must be a datetime object.");
+            Py_DECREF(pybytes);
+            return NULL;
+        }
+        _timestamp.tm_year = PyDateTime_GET_YEAR(pytimestamp) - 1900;
+        _timestamp.tm_mon = PyDateTime_GET_MONTH(pytimestamp) - 1;
+        _timestamp.tm_mday = PyDateTime_GET_DAY(pytimestamp);
+        _timestamp.tm_hour = PyDateTime_DATE_GET_HOUR(pytimestamp);
+        _timestamp.tm_min = PyDateTime_DATE_GET_MINUTE(pytimestamp);
+        _timestamp.tm_sec = PyDateTime_DATE_GET_SECOND(pytimestamp);
+        timestamp = &_timestamp;
+    }
+
     const char* filename = PyBytes_AS_STRING(pybytes);
-    ErrorCode error_code = self->library->write_gds(filename, max_points, NULL);
+    ErrorCode error_code = self->library->write_gds(filename, max_points, timestamp);
     Py_DECREF(pybytes);
     if (return_error(error_code)) return NULL;
 
@@ -267,6 +401,7 @@ static PyObject* library_object_delete_property(LibraryObject* self, PyObject* a
 static PyMethodDef library_object_methods[] = {
     {"add", (PyCFunction)library_object_add, METH_VARARGS, library_object_add_doc},
     {"remove", (PyCFunction)library_object_remove, METH_VARARGS, library_object_remove_doc},
+    {"replace", (PyCFunction)library_object_replace, METH_VARARGS, library_object_replace_doc},
     {"new_cell", (PyCFunction)library_object_new_cell, METH_VARARGS, library_object_new_cell_doc},
     {"top_level", (PyCFunction)library_object_top_level, METH_NOARGS, library_object_top_level_doc},
     {"write_gds", (PyCFunction)library_object_write_gds, METH_VARARGS | METH_KEYWORDS,
