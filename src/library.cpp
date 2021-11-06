@@ -22,6 +22,7 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 #include "label.h"
 #include "map.h"
 #include "oasis.h"
+#include "node.h"
 #include "polygon.h"
 #include "rawcell.h"
 #include "reference.h"
@@ -747,6 +748,7 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
     FlexPath* path = NULL;
     Reference* reference = NULL;
     Label* label = NULL;
+    Node* node = NULL;
 
     double factor = 1;
     double width = 0;
@@ -889,6 +891,8 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                     set_layer(path->elements[0].tag, data16[0]);
                 else if (label)
                     set_layer(label->tag, data16[0]);
+                else if (node)
+                    set_layer(node->tag, data16[0]);
                 break;
             case GdsiiRecord::DATATYPE:
             case GdsiiRecord::BOXTYPE:
@@ -896,6 +900,8 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                     set_type(polygon->tag, data16[0]);
                 else if (path)
                     set_type(path->elements[0].tag, data16[0]);
+                else if (node)
+                    set_type(node->tag, data16[0]);
                 break;
             case GdsiiRecord::WIDTH:
                 if (data32[0] < 0) {
@@ -956,6 +962,12 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                 } else if (label) {
                     label->origin.x = factor * data32[0];
                     label->origin.y = factor * data32[1];
+                } else if (node) {
+                    node->point_array.ensure_slots(data_length / 2);
+                    double* d = (double*)node->point_array.items + node->point_array.count;
+                    int32_t* s = data32;
+                    for (uint64_t i = data_length; i > 0; i--) *d++ = factor * (*s++);
+                    node->point_array.count += data_length / 2;
                 }
                 break;
             case GdsiiRecord::ENDEL:
@@ -985,11 +997,16 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                         path->clear();
                         free_allocation(path);
                     }
+                } else if (node) {
+                    node->print(true);
+                    node->clear();
+                    free_allocation(node);
                 }
                 polygon = NULL;
                 path = NULL;
                 reference = NULL;
                 label = NULL;
+                node = NULL;
                 break;
             case GdsiiRecord::SNAME: {
                 if (reference) {
@@ -1084,9 +1101,14 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
             case GdsiiRecord::ENDEXTN:
                 if (path) path->elements[0].end_extensions.v = factor * data32[0];
                 break;
+            case GdsiiRecord::NODE:
+                node = (Node*)allocate_clear(sizeof(Node));
+                break;
+            case GdsiiRecord::NODETYPE:
+                // TODO stash this in node
+                break;
             // TODO: Consider NODE support (even though it is not available for OASIS)
             // case GdsiiRecord::TEXTNODE:
-            // case GdsiiRecord::NODE:
             // case GdsiiRecord::SPACING:
             // case GdsiiRecord::UINTEGER:
             // case GdsiiRecord::USTRING:
@@ -1100,7 +1122,6 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
             // case GdsiiRecord::ELKEY:
             // case GdsiiRecord::LINKTYPE:
             // case GdsiiRecord::LINKKEYS:
-            // case GdsiiRecord::NODETYPE:
             // case GdsiiRecord::PLEX:
             // case GdsiiRecord::TAPENUM:
             // case GdsiiRecord::TAPECODE:

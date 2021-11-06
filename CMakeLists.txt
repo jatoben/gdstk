@@ -38,6 +38,7 @@ add_library(gdstk STATIC
     src/label.cpp
     src/library.cpp
     src/oasis.cpp
+    src/node.cpp
     src/polygon.cpp
     src/property.cpp
     src/rawcell.cpp
@@ -72,7 +73,7 @@ target_link_libraries(gdstk ${ZLIB_LIBRARIES})
 set_target_properties(gdstk PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     PUBLIC_HEADER "src/gdstk.h"
-    PRIVATE_HEADER "src/allocator.h;src/array.h;src/cell.h;src/clipper_tools.h;src/curve.h;src/flexpath.h;src/font.h;src/gdsii.h;src/gdswriter.h;src/label.h;src/library.h;src/map.h;src/oasis.h;src/pathcommon.h;src/polygon.h;src/property.h;src/rawcell.h;src/reference.h;src/repetition.h;src/robustpath.h;src/set.h;src/sort.h;src/style.h;src/utils.h;src/vec.h")
+    PRIVATE_HEADER "src/allocator.h;src/array.h;src/cell.h;src/clipper_tools.h;src/curve.h;src/flexpath.h;src/font.h;src/gdsii.h;src/gdswriter.h;src/label.h;src/library.h;src/map.h;src/oasis.h;src/node.h;src/pathcommon.h;src/polygon.h;src/property.h;src/rawcell.h;src/reference.h;src/repetition.h;src/robustpath.h;src/set.h;src/sort.h;src/style.h;src/utils.h;src/vec.h")
 
 include(GNUInstallDirs)
 
