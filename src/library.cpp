@@ -802,6 +802,9 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
             case GdsiiRecord::HEADER:
             case GdsiiRecord::BGNLIB:
             case GdsiiRecord::ENDSTR:
+                if (cell && cell->node_array.count > 0) {
+                    cell->print(true);
+                }
                 break;
             case GdsiiRecord::LIBNAME:
                 if (str[data_length - 1] == 0) data_length--;
@@ -998,9 +1001,10 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                         free_allocation(path);
                     }
                 } else if (node) {
+                    // TODO add shape_tags check
                     node->print(true);
-                    node->clear();
-                    free_allocation(node);
+                    // node->clear();
+                    // free_allocation(node);
                 }
                 polygon = NULL;
                 path = NULL;
@@ -1103,6 +1107,7 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                 break;
             case GdsiiRecord::NODE:
                 node = (Node*)allocate_clear(sizeof(Node));
+                if (cell) cell->node_array.append(node);
                 break;
             case GdsiiRecord::NODETYPE:
                 // TODO stash this in node

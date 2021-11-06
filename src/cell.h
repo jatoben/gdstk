@@ -19,6 +19,7 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 #include "flexpath.h"
 #include "label.h"
 #include "map.h"
+#include "node.h"
 #include "polygon.h"
 #include "reference.h"
 #include "robustpath.h"
@@ -69,6 +70,7 @@ struct Cell {
     Array<FlexPath*> flexpath_array;
     Array<RobustPath*> robustpath_array;
     Array<Label*> label_array;
+    Array<Node *> node_array;
 
     Property* properties;
 
@@ -100,6 +102,10 @@ struct Cell {
         for (uint64_t j = 0; j < label_array.count; j++) {
             label_array[j]->clear();
             free_allocation(label_array[j]);
+        }
+        for (uint64_t j = 0; j < node_array.count; j++) {
+            node_array[j]->clear();
+            free_allocation(node_array[j]);
         }
         clear();
     }

@@ -20,6 +20,8 @@ struct Node {
     Tag tag;
     Array<Vec2> point_array;
 
+    // Used by the python interface to store the associated PyObject* (if any).
+    // No functions in gdstk namespace should touch this value!
     void *owner;
 
     void print(bool all) const;

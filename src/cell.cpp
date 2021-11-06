@@ -25,9 +25,10 @@ namespace gdstk {
 
 void Cell::print(bool all) const {
     printf("Cell <%p> %s, %" PRIu64 " polygons, %" PRIu64 " flexpaths, %" PRIu64
-           " robustpaths, %" PRIu64 " references, %" PRIu64 " labels, owner <%p>\n",
+           " robustpaths, %" PRIu64 " references, %" PRIu64 " labels, %" PRIu64
+           " nodes, owner <%p>\n",
            this, name, polygon_array.count, flexpath_array.count, robustpath_array.count,
-           reference_array.count, label_array.count, owner);
+           reference_array.count, label_array.count, node_array.count, owner);
     if (all) {
         for (uint64_t i = 0; i < polygon_array.count; i++) {
             printf("[%" PRIu64 "] ", i);
@@ -49,6 +50,10 @@ void Cell::print(bool all) const {
             printf("[%" PRIu64 "] ", i);
             label_array[i]->print();
         }
+        for (uint64_t i = 0; i < node_array.count; i++) {
+            printf("[%" PRIu64 "] ", i);
+            node_array[i]->print(true);
+        }
     }
     properties_print(properties);
 }
@@ -61,6 +66,7 @@ void Cell::clear() {
     flexpath_array.clear();
     robustpath_array.clear();
     label_array.clear();
+    node_array.clear();
     properties_clear(properties);
 }
 
