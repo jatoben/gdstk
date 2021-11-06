@@ -27,6 +27,7 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 #define LabelObject_Check(o) PyObject_TypeCheck((o), &label_object_type)
 #define LibraryObject_Check(o) PyObject_TypeCheck((o), &library_object_type)
 #define GdsWriterObject_Check(o) PyObject_TypeCheck((o), &gdswriter_object_type)
+#define NodeObject_Check(o) PyObject_TypeCheck((o), &node_object_type)
 #define PolygonObject_Check(o) PyObject_TypeCheck((o), &polygon_object_type)
 #define RawCellObject_Check(o) PyObject_TypeCheck((o), &rawcell_object_type)
 #define ReferenceObject_Check(o) PyObject_TypeCheck((o), &reference_object_type)
@@ -133,6 +134,11 @@ struct RobustPathObject {
 struct LabelObject {
     PyObject_HEAD;
     Label* label;
+};
+
+struct NodeObject {
+    PyObject_HEAD;
+    Node* node;
 };
 
 struct CellObject {
@@ -362,6 +368,46 @@ static PyTypeObject robustpath_object_type = {PyVarObject_HEAD_INIT(NULL, 0) "gd
 
 static PyTypeObject label_object_type = {PyVarObject_HEAD_INIT(NULL, 0) "gdstk.Label",
                                          sizeof(LabelObject),
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                                         label_object_type_doc,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         0,
+                                         PyType_GenericNew,
+                                         0,
+                                         0};
+
+static PyTypeObject node_object_type = {PyVarObject_HEAD_INIT(NULL, 0) "gdstk.Node",
+                                         sizeof(NodeObject),
                                          0,
                                          0,
                                          0,
@@ -744,6 +790,7 @@ static Array<Vec2> custom_bend_function(double radius, double initial_angle, dou
 #include "gdswriter_object.cpp"
 #include "label_object.cpp"
 #include "library_object.cpp"
+#include "node_object.cpp"
 #include "polygon_object.cpp"
 #include "rawcell_object.cpp"
 #include "reference_object.cpp"
@@ -1441,6 +1488,14 @@ static PyObject* create_library_objects(Library* library) {
             label_obj->label = *label;
             label_obj->label->owner = label_obj;
         }
+
+        Node **node = (*cell)->node_array.items;
+        for (uint64_t j = 0; j < (*cell)->node_array.count; j++, node++) {
+            NodeObject* node_obj = PyObject_New(NodeObject, &node_object_type);
+            node_obj = (NodeObject*)PyObject_Init((PyObject*)node_obj, &node_object_type);
+            node_obj->node = *node;
+            node_obj->node->owner = node_obj;
+        }
     }
 
     cell = library->cell_array.items;
@@ -1977,6 +2032,35 @@ static int gdstk_exec(PyObject* module) {
         Py_DECREF(&flexpath_object_type);
         Py_DECREF(&robustpath_object_type);
         Py_DECREF(&label_object_type);
+        Py_XDECREF(module);
+        return -1;
+    }
+
+    node_object_type.tp_dealloc = (destructor)node_object_dealloc;
+    node_object_type.tp_init = (initproc)node_object_init;
+    node_object_type.tp_methods = node_object_methods;
+    node_object_type.tp_getset = node_object_getset;
+    node_object_type.tp_str = (reprfunc)node_object_str;
+    if (PyType_Ready(&node_object_type) < 0) {
+        Py_DECREF(&curve_object_type);
+        Py_DECREF(&polygon_object_type);
+        Py_DECREF(&reference_object_type);
+        Py_DECREF(&flexpath_object_type);
+        Py_DECREF(&robustpath_object_type);
+        Py_DECREF(&label_object_type);
+        Py_DECREF(&node_object_type);
+        Py_XDECREF(module);
+        return -1;
+    }
+    Py_INCREF(&node_object_type);
+    if (PyModule_AddObject(module, "Node", (PyObject*)&node_object_type) < 0) {
+        Py_DECREF(&curve_object_type);
+        Py_DECREF(&polygon_object_type);
+        Py_DECREF(&reference_object_type);
+        Py_DECREF(&flexpath_object_type);
+        Py_DECREF(&robustpath_object_type);
+        Py_DECREF(&label_object_type);
+        Py_DECREF(&node_object_type);
         Py_XDECREF(module);
         return -1;
     }

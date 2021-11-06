@@ -9,10 +9,11 @@ static PyObject* cell_object_str(CellObject* self) {
     char buffer[GDSTK_PRINT_BUFFER_COUNT];
     snprintf(buffer, COUNT(buffer),
              "Cell '%s' with %" PRIu64 " polygons, %" PRIu64 " flexpaths, %" PRIu64
-             " robustpaths, %" PRIu64 " references, and %" PRIu64 " labels",
+             " robustpaths, %" PRIu64 " references, %" PRIu64 " labels, and %" PRIu64
+             " nodes",
              self->cell->name, self->cell->polygon_array.count, self->cell->flexpath_array.count,
              self->cell->robustpath_array.count, self->cell->reference_array.count,
-             self->cell->label_array.count);
+             self->cell->label_array.count, self->cell->node_array.count);
     return PyUnicode_FromString(buffer);
 }
 
@@ -51,6 +52,8 @@ static int cell_object_init(CellObject* self, PyObject* args, PyObject* kwds) {
             Py_XDECREF(cell->robustpath_array[i]->owner);
         for (uint64_t i = 0; i < cell->label_array.count; i++)
             Py_XDECREF(cell->label_array[i]->owner);
+        for (uint64_t i = 0; i < cell->node_array.count; i++)
+            Py_XDECREF(cell->node_array[i]->owner);
         cell->clear();
     } else {
         self->cell = (Cell*)allocate_clear(sizeof(Cell));
@@ -1101,6 +1104,22 @@ PyObject* cell_object_get_labels_attr(CellObject* self, void*) {
     return result;
 }
 
+PyObject* cell_object_get_nodes_attr(CellObject* self, void*) {
+    Array<Node*>* array = &self->cell->node_array;
+    PyObject* result = PyList_New(array->count);
+    if (!result) {
+        PyErr_SetString(PyExc_RuntimeError, "Unable to create return list.");
+        return NULL;
+    }
+    Node** node = array->items;
+    for (uint64_t i = 0; i < array->count; i++) {
+        PyObject* node_obj = (PyObject*)(*node++)->owner;
+        Py_INCREF(node_obj);
+        PyList_SET_ITEM(result, i, node_obj);
+    }
+    return result;
+}
+
 static PyObject* cell_object_get_properties(CellObject* self, void*) {
     return build_properties(self->cell->properties);
 }
@@ -1116,6 +1135,7 @@ static PyGetSetDef cell_object_getset[] = {
     {"references", (getter)cell_object_get_references, NULL, cell_object_references_doc, NULL},
     {"paths", (getter)cell_object_get_paths_attr, NULL, cell_object_paths_doc, NULL},
     {"labels", (getter)cell_object_get_labels_attr, NULL, cell_object_labels_doc, NULL},
+    {"nodes", (getter)cell_object_get_nodes_attr, NULL, cell_object_labels_doc, NULL},
     {"properties", (getter)cell_object_get_properties, (setter)cell_object_set_properties,
      object_properties_doc, NULL},
     {NULL}};
