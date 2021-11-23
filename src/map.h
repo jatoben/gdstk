@@ -37,7 +37,7 @@ struct Map {
         if (all) {
             MapItem<T>* item = items;
             for (uint64_t i = 0; i < capacity; i++, item++) {
-                printf("(%" PRIu64 ") Item <%p>, key %p (%s), value <%p>\n", i, item, item->key,
+                printf("Item %" PRIu64 " <%p>, key %p (%s), value <%p>\n", i, item, item->key,
                        item->key ? item->key : "", item->value);
             }
         }
@@ -48,8 +48,9 @@ struct Map {
         count = 0;
         capacity = map.capacity;
         items = (MapItem<T>*)allocate_clear(capacity * sizeof(MapItem<T>));
-        for (MapItem<T>* item = map.next(NULL); item; item = map.next(item))
+        for (MapItem<T>* item = map.next(NULL); item; item = map.next(item)) {
             set(item->key, item->value);
+        }
     }
 
     void resize(uint64_t new_capacity) {
@@ -70,11 +71,11 @@ struct Map {
     // Function to iterate over all values in the map:
     // for (MapItem<T>* item = map.next(NULL); item; item = map.next(item)) {…}
     MapItem<T>* next(const MapItem<T>* current) const {
-        MapItem<T>* next = current ? (MapItem<T>*)(current + 1) : items;
+        MapItem<T>* next_ = current ? (MapItem<T>*)(current + 1) : items;
         const MapItem<T>* limit = items + capacity;
-        while (next < limit) {
-            if (next->key) return next;
-            next++;
+        while (next_ < limit) {
+            if (next_->key) return next_;
+            next_++;
         }
         return NULL;
     }
@@ -105,6 +106,7 @@ struct Map {
 
     MapItem<T>* get_slot(const char* key) const {
         assert(capacity > 0);
+        assert(count < capacity);
         uint64_t h = hash(key) % capacity;
         MapItem<T>* item = items + h;
         while (item->key != NULL && strcmp(item->key, key) != 0) {

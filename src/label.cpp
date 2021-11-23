@@ -17,10 +17,10 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 namespace gdstk {
 
 void Label::print() {
-    printf("Label <%p> %s, at (%lg, %lg), %lg rad, mag %lg, reflection %d, layer %" PRIu32
+    printf("Label <%p> %s, at (%lg, %lg), %lg rad, mag %lg,%s reflected, layer %" PRIu32
            ", texttype %" PRIu32 ", properties <%p>, owner <%p>\n",
-           this, text, origin.x, origin.y, rotation, magnification, x_reflection, get_layer(tag),
-           get_type(tag), properties, owner);
+           this, text, origin.x, origin.y, rotation, magnification, x_reflection ? "" : " not",
+           get_layer(tag), get_type(tag), properties, owner);
     properties_print(properties);
     repetition.print();
 }
@@ -126,12 +126,12 @@ ErrorCode Label::to_gds(FILE* out, double scaling) const {
     uint16_t buffer_text[] = {(uint16_t)(4 + len), 0x1906};
     big_endian_swap16(buffer_text, COUNT(buffer_text));
 
-    bool transform = rotation != 0 || magnification != 1 || x_reflection;
+    bool transform_ = rotation != 0 || magnification != 1 || x_reflection;
     uint16_t buffer_flags[] = {6, 0x1A01, 0};
     uint16_t buffer_mag[] = {12, 0x1B05};
     uint16_t buffer_rot[] = {12, 0x1C05};
     uint64_t mag_real, rot_real;
-    if (transform) {
+    if (transform_) {
         if (x_reflection) {
             buffer_flags[2] |= 0x8000;
         }
@@ -163,7 +163,7 @@ ErrorCode Label::to_gds(FILE* out, double scaling) const {
     for (uint64_t offset_count = offsets.count; offset_count > 0; offset_count--, offset_p++) {
         fwrite(buffer_start, sizeof(uint16_t), COUNT(buffer_start), out);
 
-        if (transform) {
+        if (transform_) {
             fwrite(buffer_flags, sizeof(uint16_t), COUNT(buffer_flags), out);
             if (magnification != 1) {
                 fwrite(buffer_mag, sizeof(uint16_t), COUNT(buffer_mag), out);

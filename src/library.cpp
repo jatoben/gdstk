@@ -42,12 +42,16 @@ void Library::print(bool all) const {
            " raw cells, owner <%p>\n",
            this, name, unit, precision, cell_array.count, rawcell_array.count, owner);
     if (all) {
+        printf("Cell array (count %" PRIu64 "/%" PRIu64 "):\n", cell_array.count,
+               cell_array.capacity);
         for (uint64_t i = 0; i < cell_array.count; i++) {
-            printf("{%" PRIu64 "} ", i);
+            printf("Cell %" PRIu64 ": ", i);
             cell_array[i]->print(true);
         }
+        printf("RawCell array (count %" PRIu64 "/%" PRIu64 "):\n", rawcell_array.count,
+               rawcell_array.capacity);
         for (uint64_t i = 0; i < rawcell_array.count; i++) {
-            printf("{%" PRIu64 "} ", i);
+            printf("RawCell %" PRIu64 ": ", i);
             rawcell_array[i]->print(true);
         }
     }
@@ -1489,9 +1493,9 @@ Library read_oas(const char* filename, double unit, double tolerance, ErrorCode*
                     cell->name = (char*)oasis_read_string(in, true, len);
                 }
                 modal_absolute_pos = true;
-                modal_placement_pos = {0, 0};
-                modal_geom_pos = {0, 0};
-                modal_text_pos = {0, 0};
+                modal_placement_pos = Vec2{0, 0};
+                modal_geom_pos = Vec2{0, 0};
+                modal_text_pos = Vec2{0, 0};
             } break;
             case OasisRecord::XYABSOLUTE:
                 modal_absolute_pos = true;
