@@ -8,7 +8,7 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 static PyObject* node_object_str(NodeObject* self) {
     char buffer[GDSTK_PRINT_BUFFER_COUNT];
     snprintf(buffer, COUNT(buffer),
-             "Node at layer %" PRIu32 ", datatype %" PRIu32 ", with %" PRIu64 " points",
+             "Node at layer %" PRIu32 ", nodetype %" PRIu32 ", with %" PRIu64 " points",
              get_layer(self->node->tag), get_type(self->node->tag),
              self->node->point_array.count);
     return PyUnicode_FromString(buffer);
@@ -41,7 +41,7 @@ static PyObject* node_object_get_layer(NodeObject* self, void*) {
     return PyLong_FromUnsignedLongLong(get_layer(self->node->tag));
 }
 
-static PyObject* node_object_get_datatype(NodeObject* self, void*) {
+static PyObject* node_object_get_nodetype(NodeObject* self, void*) {
     return PyLong_FromUnsignedLongLong(get_type(self->node->tag));
 }
 
@@ -51,6 +51,6 @@ static PyMethodDef node_object_methods[] = {
 
 static PyGetSetDef node_object_getset[] = {
     {"layer", (getter)node_object_get_layer, NULL, label_object_layer_doc, NULL},
-    {"datatype", (getter)node_object_get_datatype, NULL, label_object_texttype_doc, NULL},
+    {"nodetype", (getter)node_object_get_nodetype, NULL, label_object_texttype_doc, NULL},
     {NULL}
 };

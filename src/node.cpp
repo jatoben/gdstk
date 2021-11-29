@@ -10,7 +10,7 @@ LICENSE file or <http://www.boost.org/LICENSE_1_0.txt>
 namespace gdstk {
 
 void Node::print(bool all) const {
-    printf("Node <%p>, count %" PRIu64 ", layer %" PRIu32 ", datatype %" PRIu32
+    printf("Node <%p>, count %" PRIu64 ", layer %" PRIu32 ", nodetype %" PRIu32
            ", owner <%p>\n",
            this, point_array.count, get_layer(tag), get_type(tag), owner);
     if (all) {

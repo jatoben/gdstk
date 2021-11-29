@@ -1114,7 +1114,7 @@ Library read_gds(const char* filename, double unit, double tolerance, const Set<
                 if (cell) cell->node_array.append(node);
                 break;
             case GdsiiRecord::NODETYPE:
-                // TODO stash this in node
+                if (node) set_type(node->tag, data16[0]);
                 break;
             // TODO: Consider NODE support (even though it is not available for OASIS)
             // case GdsiiRecord::TEXTNODE:
