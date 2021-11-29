@@ -14,7 +14,29 @@ static PyObject* node_object_str(NodeObject* self) {
     return PyUnicode_FromString(buffer);
 }
 
-static void node_object_init() {}
+static int node_object_init(NodeObject* self, PyObject* args, PyObject* kwds) {
+    PyObject* py_points = NULL;
+    unsigned long layer = 0;
+    unsigned long nodetype = 0;
+    const char* keywords[] = {"points", "layer", "nodetype", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|kk:Node", (char**)keywords,
+                                     &py_points, &layer, &nodetype))
+        return -1;
+
+    if (self->node)
+        self->node->clear();
+    else
+        self->node= (Node*)allocate_clear(sizeof(Node));
+
+    Node* node = self->node;
+    node->tag = make_tag(layer, nodetype);
+    node->owner = self;
+    if (parse_point_sequence(py_points, node->point_array, "points") < 0) {
+        return -1;
+    }
+    return 0;
+}
 
 static void node_object_dealloc(NodeObject* self) {
     if (self->node) {
@@ -50,6 +72,7 @@ static PyMethodDef node_object_methods[] = {
 };
 
 static PyGetSetDef node_object_getset[] = {
+    {"points", (getter)node_object_get_points, NULL, polygon_object_points_doc},
     {"layer", (getter)node_object_get_layer, NULL, label_object_layer_doc, NULL},
     {"nodetype", (getter)node_object_get_nodetype, NULL, label_object_texttype_doc, NULL},
     {NULL}
