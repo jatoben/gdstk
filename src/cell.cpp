@@ -779,6 +779,12 @@ ErrorCode Cell::to_gds(FILE* out, double scaling, uint64_t max_points, double pr
         if (err != ErrorCode::NoError) error_code = err;
     }
 
+    Node** node = node_array.items;
+    for (uint64_t i = 0; i < node_array.count; i++, node++) {
+        ErrorCode err = (*node)->to_gds(out, scaling);
+        if (err != ErrorCode::NoError) error_code = err;
+    }
+
     Reference** reference = reference_array.items;
     for (uint64_t i = 0; i < reference_array.count; i++, reference++) {
         ErrorCode err = (*reference)->to_gds(out, scaling);

@@ -23,9 +23,29 @@ void Node::clear() {
     point_array.clear();
 }
 
-// ErrorCode Node::to_gds(FILE* out, double scaling) const {
-//     ErrorCode error_code = ErrorCode::NoError;
-//     return error_code;
-// }
+ErrorCode Node::to_gds(FILE* out, double scaling) const {
+    printf("Node::to_gds()\n");
+
+    ErrorCode error_code = ErrorCode::NoError;
+    uint16_t buffer_start[] = {4,
+                               0x1500,
+                               6,
+                               0x0D02,
+                               (uint16_t)get_layer(tag),
+                               6,
+                               0x2A02,
+                               (uint16_t)get_type(tag),
+                              };
+    big_endian_swap16(buffer_start, COUNT(buffer_start));
+
+    uint16_t buffer_end[] = {4, 0x1100};
+    big_endian_swap16(buffer_end, COUNT(buffer_end));
+
+    // TODO points
+
+    fwrite(buffer_start, sizeof(uint16_t), COUNT(buffer_start), out);
+    fwrite(buffer_end, sizeof(uint16_t), COUNT(buffer_end), out);
+    return error_code;
+}
 
 } // namespace gdstk

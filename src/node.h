@@ -28,7 +28,7 @@ struct Node {
 
     void clear();
 
-    // ErrorCode to_gds(FILE* out, double scaling) const;
+    ErrorCode to_gds(FILE* out, double scaling) const;
 };
 
 } // namespace gdstk
