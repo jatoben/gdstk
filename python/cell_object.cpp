@@ -85,6 +85,8 @@ static PyObject* cell_object_add(CellObject* self, PyObject* args) {
             cell->robustpath_array.append(((RobustPathObject*)arg)->robustpath);
         } else if (LabelObject_Check(arg)) {
             cell->label_array.append(((LabelObject*)arg)->label);
+        } else if (NodeObject_Check(arg)) {
+            cell->node_array.append(((NodeObject*)arg)->node);
         } else if (PyIter_Check(arg)) {
             PyObject* item = PyIter_Next(arg);
             while (item) {
@@ -98,6 +100,8 @@ static PyObject* cell_object_add(CellObject* self, PyObject* args) {
                     cell->robustpath_array.append(((RobustPathObject*)item)->robustpath);
                 } else if (LabelObject_Check(item)) {
                     cell->label_array.append(((LabelObject*)item)->label);
+                } else if (NodeObject_Check(item)) {
+                    cell->node_array.append(((NodeObject*)item)->node);
                 } else {
                     PyErr_SetString(
                         PyExc_TypeError,
